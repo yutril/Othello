@@ -10,8 +10,10 @@ class Field {
         }
     }
 
-    fun getDisc(x: Int, y: Int): Disc {
-        require(x in 1..8 && y in 1..8)
+    fun getDisc(x: Int, y: Int): Disc? {
+        if (x !in 1..8 || y !in 1..8) {
+            return null
+        }
         return discs[(y - 1) * 8 + x - 1]
     }
 }
