@@ -14,13 +14,20 @@ class Game {
     var status = STATE_WAITING
         private set
 
-    private val field = Field()
+    val field = Field()
 
     private val cpu = CPU(this)
 
-    private var lastOutput = ""
-
-    private var lastPrint = ""
+    private val around = listOf(
+        -1 to 1,
+        0 to 1,
+        1 to 1,
+        -1 to 0,
+        1 to 0,
+        -1 to -1,
+        -1 to 0,
+        1 to 1
+    )
 
     fun start() {
         if (status != STATE_WAITING) {
@@ -30,19 +37,21 @@ class Game {
         field.getDisc(5, 4)?.status = Disc.STATE_BLACK
         field.getDisc(4, 5)?.status = Disc.STATE_BLACK
         field.getDisc(5, 5)?.status = Disc.STATE_WHITE
-        reloadView()
         status = STATE_PLAYING
 
         while (true) {
-            var playerDisc: Disc = getDiscByInput()
+            var disc: Disc
             while (true) {
-                if (!canSet(playerDisc, PLAYER_COLOR)) {
+                disc = getDiscByInput()
+                if (!canSet(disc, PLAYER_COLOR)) {
                     print("You cannot set disc here")
                 } else {
                     break
                 }
-                playerDisc = getDiscByInput()
             }
+            setDisc(disc, PLAYER_COLOR)
+            setDisc(cpu.getNextDisc(), CPU_COLOR)
+            reloadView()
         }
     }
 
@@ -77,11 +86,10 @@ class Game {
 
     fun print(message: String) {
         reloadView(message)
-        lastPrint = message
     }
 
     fun waitInput(message: String): String {
-        reloadView(lastPrint, message)
+        reloadView("", message)
         return readLine()!!
     }
 
@@ -109,22 +117,63 @@ class Game {
         if (disc.status != Disc.STATE_EMPTY) {
             return false
         }
-
-        return true
+        around.forEach {
+            var x = disc.x + it.first
+            var y = disc.y + it.second
+            while (true) {
+                val disc2 = field.getDisc(x, y)
+                if (disc2 !is Disc) {
+                    return@forEach
+                }
+                if (disc2.status == Disc.STATE_EMPTY) {
+                    return@forEach
+                }
+                if (disc2.status == color) {
+                    return true
+                }
+                x += it.first
+                y += it.second
+            }
+        }
+        return false
     }
 
     fun setDisc(disc: Disc, color: Int) {
         require(canSet(disc, color))
+        require(color == PLAYER_COLOR || color == CPU_COLOR)
+        disc.status = color
+        around.forEach {
+            var x = disc.x + it.first
+            var y = disc.y + it.second
+            val cache = mutableListOf<Disc>()
+            while (true) {
+                val disc2 = field.getDisc(x, y)
+                if (disc2 !is Disc || disc2.status == Disc.STATE_EMPTY) {
+                    return@forEach
+                }
+                if (disc2.status == color) {
+                    cache.forEach { disc3 ->
+                        disc3.status = color
+                    }
+                    return@forEach
+                }
+                cache.add(disc2)
+                x += it.first
+                y += it.second
+            }
+        }
     }
 
     private fun reloadView(message: String = "", inputMessage: String = "") {
         var s = ""
+        /*
         var count = 0
         while(count < lastOutput.count()) {
             s += "\b"
             count++
         }
-        s += "Player: black\n  1 2 3 4 5 6 7 8 \n"
+         */
+        s += "Player: black(○)\n  1 2 3 4 5 6 7 8 x\n"
         var key = 0
         for (y in 1..8) {
             s += y
@@ -132,13 +181,13 @@ class Game {
                 val disc = field.getDisc(x, y)
                 val view = when (disc?.status) {
                     Disc.STATE_BLACK -> {
-                        "●"
-                    }
-                    Disc.STATE_WHITE -> {
                         "○"
                     }
+                    Disc.STATE_WHITE -> {
+                        "●"
+                    }
                     else -> {
-                        "x"
+                        "-"
                     }
                 }
                 s += " $view"
@@ -146,6 +195,7 @@ class Game {
             }
             s += "\n"
         }
+        s += "y\n"
         if (message.isNotEmpty()) {
             s += "- $message\n"
         }
@@ -153,6 +203,5 @@ class Game {
             s += "$inputMessage: "
         }
         kotlin.io.print(s)
-        lastOutput = s
     }
 }

@@ -1,6 +1,9 @@
 package io.github.yuuuu51.othello
 
-class Disc {
+class Disc(
+    val x: Int,
+    val y: Int
+) {
 
     companion object {
         const val STATE_EMPTY = 0

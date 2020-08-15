@@ -2,11 +2,15 @@ package io.github.yuuuu51.othello
 
 class Field {
 
-    private val discs = mutableListOf<Disc>()
+    private val discs = mutableMapOf<Int, Map<Int, Disc>>()
 
     init {
-        for (count in 1..64) {
-            discs.add(Disc())
+        for (x in 1..8) {
+            val map = mutableMapOf<Int, Disc>()
+            for (y in 1..8) {
+                map[y] = Disc(x, y)
+            }
+            discs[x] = map
         }
     }
 
@@ -14,6 +18,10 @@ class Field {
         if (x !in 1..8 || y !in 1..8) {
             return null
         }
-        return discs[(y - 1) * 8 + x - 1]
+        return discs[x]?.get(y)
+    }
+
+    fun getAllDisc(): Map<Int, Map<Int, Disc>> {
+        return discs
     }
 }
