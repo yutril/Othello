@@ -1,5 +1,8 @@
 package io.github.yuuuu51.othello
 
+import io.github.yuuuu51.othello.player.CPUPlayer
+import io.github.yuuuu51.othello.player.Player
+import io.github.yuuuu51.othello.player.UserPlayer
 import kotlin.system.exitProcess
 
 class Game {
@@ -9,15 +12,18 @@ class Game {
         const val STATE_PLAYING = 1
         const val STATE_FINISH = 2
 
-        const val PLAYER_COLOR = Disc.STATE_BLACK
-        const val CPU_COLOR = Disc.STATE_WHITE
+        const val COLOR_EMPTY = 0
+        const val COLOR_BLACK = 1
+        const val COLOR_WHITE = 2
     }
-
-    private var status = STATE_WAITING
 
     val field = Field()
 
-    private val cpu = CPU(this)
+    private var status = STATE_WAITING
+
+    private val blackPlayer: Player
+
+    private val whitePlayer: Player
 
     private val around = listOf(
         -1 to 1,
@@ -30,103 +36,46 @@ class Game {
         1 to -1
     )
 
+    init {
+        blackPlayer = UserPlayer(this, COLOR_BLACK)
+        whitePlayer = CPUPlayer(this, COLOR_WHITE)
+    }
+
     fun start() {
         if (status != STATE_WAITING) {
             return
         }
-        field.getDisc(4, 4)?.status = Disc.STATE_WHITE
-        field.getDisc(5, 4)?.status = Disc.STATE_BLACK
-        field.getDisc(4, 5)?.status = Disc.STATE_BLACK
-        field.getDisc(5, 5)?.status = Disc.STATE_WHITE
+        field.getDisc(4, 4)?.status = COLOR_WHITE
+        field.getDisc(5, 4)?.status = COLOR_BLACK
+        field.getDisc(4, 5)?.status = COLOR_BLACK
+        field.getDisc(5, 5)?.status = COLOR_WHITE
         updateView()
         status = STATE_PLAYING
 
+        var player: Player = whitePlayer
         while (true) {
-            var playerDisc: Disc
-            while (true) {
-                playerDisc = getDiscByInput()
-                if (!canSet(playerDisc, PLAYER_COLOR)) {
-                    println("- You cannot set disc here")
-                } else {
-                    break
-                }
+            player = when (player) {
+                blackPlayer -> whitePlayer
+                whitePlayer -> blackPlayer
+                else -> throw Exception()
             }
-            setDisc(playerDisc, PLAYER_COLOR)
+            if (getCanSetDiscs(player.color).isEmpty()) {
+                println("${player.getName()} could not set any discs")
+                continue
+            }
+            val disc = player.getNextDisc()
+            setDisc(disc, player.color)
             updateView()
-            judge()
-            println("Player set a disc(${playerDisc.x}, ${playerDisc.y})")
-            val cpuDisc = cpu.getNextDisc()
-            setDisc(cpuDisc, CPU_COLOR)
-            updateView()
-            println("CPU set a disc(${cpuDisc.x}, ${cpuDisc.y})")
+            println("${player.getName()} set a disc(${disc.x}, ${disc.y})")
             judge()
         }
     }
 
-    private fun judge() {
-        var black = 0
-        var white = 0
-        for (x in 1..8) {
-            for (y in 1..8) {
-                when (field.getDisc(x, y)?.status) {
-                    Disc.STATE_WHITE -> {
-                        white++
-                    }
-                    Disc.STATE_BLACK -> {
-                        black++
-                    }
-                    else -> {
-                        return
-                    }
-                }
-            }
-        }
-        val winner = when {
-            black > white -> {
-                "Black win!"
-            }
-            white > black -> {
-                "White win!"
-            }
-            else -> {
-                "Draw!"
-            }
-        }
-        status = STATE_FINISH
-        print("$winner (Black: $black, White: $white)")
-        exitProcess(0)
-    }
-
-    private fun waitInput(message: String): String {
-        print("$message: ")
-        return readLine()!!
-    }
-
-    private fun getDiscByInput(): Disc {
-        val x: Int
-        while (true) {
-            val i = waitInput("Please enter x coordinate").toIntOrNull()
-            if (i is Int && i in 1..8) {
-                x = i
-                break
-            }
-        }
-        val y: Int
-        while (true) {
-            val i = waitInput("Please enter y coordinate").toIntOrNull()
-            if (i is Int && i in 1..8) {
-                y = i
-                break
-            }
-        }
-        return field.getDisc(x, y)!!
-    }
-
-    private fun canSet(disc: Disc, color: Int): Boolean {
-        if (color != PLAYER_COLOR && color != CPU_COLOR) {
+    fun canSet(disc: Disc, color: Int): Boolean {
+        if (color != COLOR_BLACK && color != COLOR_WHITE) {
             return false
         }
-        if (disc.status != Disc.STATE_EMPTY) {
+        if (disc.status != COLOR_EMPTY) {
             return false
         }
         around.forEach {
@@ -135,7 +84,7 @@ class Game {
             var distance = 0
             while (true) {
                 val disc2 = field.getDisc(x, y)
-                if (disc2 !is Disc || disc2.status == Disc.STATE_EMPTY) {
+                if (disc2 !is Disc || disc2.status == COLOR_EMPTY) {
                     return@forEach
                 }
                 if (disc2.status != color) {
@@ -166,9 +115,46 @@ class Game {
         return discs
     }
 
+    private fun judge() {
+        if (getCanSetDiscs(COLOR_BLACK).isNotEmpty() || getCanSetDiscs(COLOR_WHITE).isNotEmpty()) {
+            return
+        }
+        var black = 0
+        var white = 0
+        for (x in 1..8) {
+            for (y in 1..8) {
+                when (field.getDisc(x, y)?.status) {
+                    COLOR_WHITE -> {
+                        white++
+                    }
+                    COLOR_BLACK -> {
+                        black++
+                    }
+                    else -> {
+                        return
+                    }
+                }
+            }
+        }
+        val winner = when {
+            black > white -> {
+                "Black win!"
+            }
+            white > black -> {
+                "White win!"
+            }
+            else -> {
+                "Draw!"
+            }
+        }
+        status = STATE_FINISH
+        print("$winner (Black: $black, White: $white)")
+        exitProcess(0)
+    }
+
     private fun setDisc(disc: Disc, color: Int) {
         require(canSet(disc, color))
-        require(color == PLAYER_COLOR || color == CPU_COLOR)
+        require(color == COLOR_BLACK || color == COLOR_WHITE)
         disc.status = color
         around.forEach {
             var x = disc.x + it.first
@@ -176,7 +162,7 @@ class Game {
             val cache = mutableListOf<Disc>()
             while (true) {
                 val disc2 = field.getDisc(x, y)
-                if (disc2 !is Disc || disc2.status == Disc.STATE_EMPTY) {
+                if (disc2 !is Disc || disc2.status == COLOR_EMPTY) {
                     return@forEach
                 }
                 if (disc2.status == color) {
@@ -208,10 +194,10 @@ class Game {
             for (x in 1..8) {
                 val disc = field.getDisc(x, y)
                 val view = when (disc?.status) {
-                    Disc.STATE_BLACK -> {
+                    COLOR_BLACK -> {
                         "○"
                     }
-                    Disc.STATE_WHITE -> {
+                    COLOR_WHITE -> {
                         "●"
                     }
                     else -> {
