@@ -1,5 +1,7 @@
 package io.github.yuuuu51.othello
 
+import kotlin.system.exitProcess
+
 class Game {
 
     companion object {
@@ -11,8 +13,7 @@ class Game {
         const val CPU_COLOR = Disc.STATE_WHITE
     }
 
-    var status = STATE_WAITING
-        private set
+    private var status = STATE_WAITING
 
     val field = Field()
 
@@ -52,15 +53,17 @@ class Game {
             }
             setDisc(playerDisc, PLAYER_COLOR)
             updateView()
+            judge()
             println("Player set a disc(${playerDisc.x}, ${playerDisc.y})")
             val cpuDisc = cpu.getNextDisc()
             setDisc(cpuDisc, CPU_COLOR)
             updateView()
             println("CPU set a disc(${cpuDisc.x}, ${cpuDisc.y})")
+            judge()
         }
     }
 
-    fun judge(): Boolean {
+    private fun judge() {
         var black = 0
         var white = 0
         for (x in 1..8) {
@@ -73,28 +76,33 @@ class Game {
                         black++
                     }
                     else -> {
-                        return false
+                        return
                     }
                 }
             }
         }
-        val winner = if (black > white) {
-            "Black win!"
-        } else if (white > black) {
-            "White win!"
-        } else {
-            "Draw!"
+        val winner = when {
+            black > white -> {
+                "Black win!"
+            }
+            white > black -> {
+                "White win!"
+            }
+            else -> {
+                "Draw!"
+            }
         }
+        status = STATE_FINISH
         print("$winner (Black: $black, White: $white)")
-        return true
+        exitProcess(0)
     }
 
-    fun waitInput(message: String): String {
+    private fun waitInput(message: String): String {
         print("$message: ")
         return readLine()!!
     }
 
-    fun getDiscByInput(): Disc {
+    private fun getDiscByInput(): Disc {
         val x: Int
         while (true) {
             val i = waitInput("Please enter x coordinate").toIntOrNull()
@@ -114,7 +122,7 @@ class Game {
         return field.getDisc(x, y)!!
     }
 
-    fun canSet(disc: Disc, color: Int): Boolean {
+    private fun canSet(disc: Disc, color: Int): Boolean {
         if (color != PLAYER_COLOR && color != CPU_COLOR) {
             return false
         }
@@ -146,7 +154,19 @@ class Game {
         return false
     }
 
-    fun setDisc(disc: Disc, color: Int) {
+    fun getCanSetDiscs(color: Int): List<Disc> {
+        val discs = mutableListOf<Disc>()
+        field.getAllDisc().forEach { (_, map) ->
+            map.forEach { (_, disc) ->
+                if (canSet(disc, color)) {
+                    discs.add(disc)
+                }
+            }
+        }
+        return discs
+    }
+
+    private fun setDisc(disc: Disc, color: Int) {
         require(canSet(disc, color))
         require(color == PLAYER_COLOR || color == CPU_COLOR)
         disc.status = color
