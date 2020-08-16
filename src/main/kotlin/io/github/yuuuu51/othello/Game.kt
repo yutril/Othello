@@ -25,8 +25,8 @@ class Game {
         -1 to 0,
         1 to 0,
         -1 to -1,
-        -1 to 0,
-        1 to 1
+        0 to -1,
+        1 to -1
     )
 
     fun start() {
@@ -37,21 +37,26 @@ class Game {
         field.getDisc(5, 4)?.status = Disc.STATE_BLACK
         field.getDisc(4, 5)?.status = Disc.STATE_BLACK
         field.getDisc(5, 5)?.status = Disc.STATE_WHITE
+        updateView()
         status = STATE_PLAYING
 
         while (true) {
-            var disc: Disc
+            var playerDisc: Disc
             while (true) {
-                disc = getDiscByInput()
-                if (!canSet(disc, PLAYER_COLOR)) {
-                    print("You cannot set disc here")
+                playerDisc = getDiscByInput()
+                if (!canSet(playerDisc, PLAYER_COLOR)) {
+                    println("- You cannot set disc here")
                 } else {
                     break
                 }
             }
-            setDisc(disc, PLAYER_COLOR)
-            setDisc(cpu.getNextDisc(), CPU_COLOR)
-            reloadView()
+            setDisc(playerDisc, PLAYER_COLOR)
+            updateView()
+            println("Player set a disc(${playerDisc.x}, ${playerDisc.y})")
+            val cpuDisc = cpu.getNextDisc()
+            setDisc(cpuDisc, CPU_COLOR)
+            updateView()
+            println("CPU set a disc(${cpuDisc.x}, ${cpuDisc.y})")
         }
     }
 
@@ -84,17 +89,13 @@ class Game {
         return true
     }
 
-    fun print(message: String) {
-        reloadView(message)
-    }
-
     fun waitInput(message: String): String {
-        reloadView("", message)
+        print("$message: ")
         return readLine()!!
     }
 
     fun getDiscByInput(): Disc {
-        var x: Int
+        val x: Int
         while (true) {
             val i = waitInput("Please enter x coordinate").toIntOrNull()
             if (i is Int && i in 1..8) {
@@ -102,7 +103,7 @@ class Game {
                 break
             }
         }
-        var y: Int
+        val y: Int
         while (true) {
             val i = waitInput("Please enter y coordinate").toIntOrNull()
             if (i is Int && i in 1..8) {
@@ -114,25 +115,32 @@ class Game {
     }
 
     fun canSet(disc: Disc, color: Int): Boolean {
+        if (color != PLAYER_COLOR && color != CPU_COLOR) {
+            return false
+        }
         if (disc.status != Disc.STATE_EMPTY) {
             return false
         }
         around.forEach {
             var x = disc.x + it.first
             var y = disc.y + it.second
+            var distance = 0
             while (true) {
                 val disc2 = field.getDisc(x, y)
-                if (disc2 !is Disc) {
+                if (disc2 !is Disc || disc2.status == Disc.STATE_EMPTY) {
                     return@forEach
                 }
-                if (disc2.status == Disc.STATE_EMPTY) {
+                if (disc2.status != color) {
+                    distance++
+                    x += it.first
+                    y += it.second
+                    continue
+                } else {
+                    if (distance > 0) {
+                        return true
+                    }
                     return@forEach
                 }
-                if (disc2.status == color) {
-                    return true
-                }
-                x += it.first
-                y += it.second
             }
         }
         return false
@@ -164,7 +172,7 @@ class Game {
         }
     }
 
-    private fun reloadView(message: String = "", inputMessage: String = "") {
+    private fun updateView() {
         var s = ""
         /*
         var count = 0
@@ -173,7 +181,7 @@ class Game {
             count++
         }
          */
-        s += "Player: black(○)\n  1 2 3 4 5 6 7 8 x\n"
+        s += "\nPlayer: black(○)\n  1 2 3 4 5 6 7 8 x\n"
         var key = 0
         for (y in 1..8) {
             s += y
@@ -196,12 +204,6 @@ class Game {
             s += "\n"
         }
         s += "y\n"
-        if (message.isNotEmpty()) {
-            s += "- $message\n"
-        }
-        if (inputMessage.isNotEmpty()) {
-            s += "$inputMessage: "
-        }
-        kotlin.io.print(s)
+        print(s)
     }
 }
